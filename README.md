@@ -1,186 +1,83 @@
+# Bye-Bye Lanternfly — Render deployment copy
 
-# Bye-Bye Lanternfly: AI Image Recognition and Counting
+A small Flask website that uses the trained YOLOv8 model to draw boxes around visible **adult spotted lanternflies** in one uploaded photograph and report the number of retained detections. A photo count is not an estimate of an area's total population or infestation level.
 
-**CSC 425 AI Project — Milestone 1**
+## What is included
 
-## Project Overview
+- `app.py`: Flask upload/prediction routes, validation, model startup, and annotated response.
+- `templates/index.html`: mobile-friendly page, camera/photo picker, preview, result and messages (CSS and JavaScript are inline).
+- `models/best.pt`: the existing trained detector checkpoint copied without modification.
+- `requirements.txt`, `.python-version`, `.gitignore`: runtime and repository setup.
+- `reports/`: the measured exploratory evaluation summary and per-image counts.
+- `docs/roboflow_sources.md`: the dataset source, license and screening notes.
 
-**Bye-Bye Lanternfly** is an AI computer-vision project designed to identify and count spotted lanternflies (*Lycorma delicatula*) in user-provided images. The goal is to build a lightweight object-detection system that draws a bounding box around each detected lanternfly and uses the number of detections as the estimated count.
+The application does not import training code or use a dataset at runtime. Uploads are read and processed in memory; the app does not save submitted photos. No API key, database, or secret environment variable is required. There is no external service for inference.
 
-### Input → AI Task → Output
+## Model and limitations
 
-- **Input:** An image supplied by the user
-- **AI task:** Object detection using a YOLO model
-- **Output:** Bounding boxes around detected spotted lanternflies, confidence scores, and the total number detected
+The model is `models/best.pt` (6,457,962 bytes, about 6.16 MiB). It is the existing best checkpoint from the completed five-epoch CPU fine-tune; this deployment copy contains the same file (SHA-256 `34a44eba7cdb1d115c86420e03826a430937ae4b6c3c73e0872ed85f14fbb46e`). It detects the adult spotted lanternfly class only. It can miss insects, especially small or overlapping ones, and can produce false detections on nymphs or other objects.
 
-The project proposal specifies approximately 500 labeled images, split into training, validation, and test sets. Preprocessing will include image sizing, augmentation, and bounding-box annotation.
+Exploratory evaluation at 640 px used confidence 0.20, chosen on validation data: on the source test split, test-set box-match precision/recall were 0.741/0.450 and count MAE was 1.728 insects per image; mAP@0.50 was 0.538 and mAP@0.50:0.95 was 0.294. The test set has 276 images and 765 adult annotations, but its previous use is unknown; its results were consulted when comparing checkpoints. Labels were machine-screened, not individually verified, and no verified empty-scene images were available. These numbers are exploratory, not an independent final estimate. Dense examples are undercounted (106 annotated adults yielded 10 detections). A single image must not be treated as an area-level population or infestation estimate.
 
-## Why This Matters
+## Run locally on Windows PowerShell
 
-Spotted lanternflies are an invasive species with environmental and agricultural impacts. Automated image-based identification could make it easier for individuals to identify lanternflies and record observations. A counting system could also support future monitoring of lanternfly abundance and distribution.
+Use 64-bit Python 3.13.7 (the `.python-version` file documents the Render/local target):
 
-## Proposed Approach
-
-The initial model will use **YOLOv8**, trained in Google Colab with a free GPU. The model will be fine-tuned on a custom spotted-lanternfly dataset.
-
-> **Important data note:** the Hugging Face lanternfly datasets currently discoverable include useful classification/field-image resources, but not all contain YOLO bounding-box annotations. Before training, the project must verify annotation availability and, if necessary, manually or semi-automatically create bounding boxes. The repository therefore treats the dataset as a preparation task rather than assuming the downloaded images are already YOLO-ready.
-
-## Dataset Plan
-
-Primary candidate resources:
-
-1. [Hugging Face — rlogh/lanternfly-images](https://huggingface.co/datasets/rlogh/lanternfly-images)
-2. [Hugging Face — rlogh/lanternfly-data](https://huggingface.co/datasets/rlogh/lanternfly-data)
-3. Additional open-source images from sources such as iNaturalist/Kaggle, subject to licensing and annotation availability.
-
-The target dataset is approximately 500 useful labeled images. The final number may change after checking image quality, duplicates, licensing, and bounding-box availability.
-
-### YOLO Dataset Layout
-
-```text
-data/
-├── images/
-│   ├── train/
-│   ├── val/
-│   └── test/
-└── labels/
-    ├── train/
-    ├── val/
-    └── test/
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+$env:LANTERNFLY_WEIGHTS = "models\best.pt"
+$env:LANTERNFLY_CONFIDENCE = "0.20"
+$env:PORT = "5000"
+python app.py
 ```
 
-Each label file uses YOLO object-detection format:
+Open `http://127.0.0.1:5000`. `app.py` uses Flask's development server only for local testing. Do not use it as the Render production server.
 
-```text
-class_id x_center y_center width height
-```
+Optional environment variables:
 
-All coordinates are normalized from 0 to 1.
+- `LANTERNFLY_WEIGHTS`: model path. Defaults to `models/best.pt`; a relative value is resolved from the project folder.
+- `LANTERNFLY_CONFIDENCE`: detector confidence, default `0.20` (selected using validation data).
+- `PORT`: local development server port; Render supplies this automatically to the production server.
 
-## Repository Structure
+## Upload this copy to GitHub
 
-```text
-Bye-Bye-Lanternfly-CSC425/
-├── data/                  # Dataset folders; large data is NOT committed
-├── docs/
-│   ├── milestone1.md
-│   └── data_notes.md
-├── notebooks/
-│   └── 01_data_exploration.ipynb
-├── scripts/
-│   └── download_hf_dataset.py
-├── src/
-│   ├── train.py
-│   └── predict_count.py
-├── models/                # Final .pt weights
-├── runs/                  # Training outputs (ignored by Git)
-├── data.yaml              # YOLO dataset configuration
-├── requirements.txt
-├── .gitignore
-└── README.md
-```
+1. Extract `Bye-Bye-Lanternfly-Render.zip` and open the extracted `Bye-Bye-Lanternfly-Render` folder.
+2. Create a new, empty GitHub repository yourself.
+3. Upload the **contents** of the extracted folder while preserving its directories, especially `templates/`, `models/`, `docs/`, and `reports/`. Do not upload only the README or omit `models/best.pt`.
+4. Confirm the repository contains `app.py`, `requirements.txt`, `.python-version`, `templates/index.html`, and `models/best.pt` at its root-relative paths.
 
-## Installation
+The checkpoint is 6.46 MB, below GitHub's 25 MB browser-upload limit and 100 MB Git hard limit, so it can be added directly. It is not omitted or replaced with a different model. The original project remains separate and untouched.
 
-Python 3.10 or newer is recommended. Install the dependencies:
+## Configure a Render Web Service manually
 
-```bash
-pip install -r requirements.txt
-```
+No `render.yaml` is needed. In Render, create a **Web Service**, connect your new GitHub repository, select the branch, and leave Root Directory blank (or set it to the repository root). Use:
 
-## Prepare Hugging Face images
+- **Runtime:** Python 3
+- **Build command:** `pip install -r requirements.txt`
+- **Start command:** `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 gunicorn --workers 1 --timeout 120 --bind 0.0.0.0:$PORT app:app`
+- **Environment variables:** none required. Optionally set `LANTERNFLY_CONFIDENCE=0.20` and `LANTERNFLY_WEIGHTS=models/best.pt`.
 
-The `rlogh/lanternfly-data` dataset is the closest match for field photographs. The dataset card lists 234 images and a CC BY 4.0 license. Its images have image level species labels and metadata, but no verified YOLO bounding boxes. `rlogh/lanternfly-images` is a smaller 33 original image classification set with augmented copies; those copies are not independent examples and it also has no boxes. These datasets cannot train the object detector until you draw and check a box for every lanternfly.
+The `app:app` target matches the Flask object in `app.py`. One Gunicorn worker avoids loading a separate model copy per worker and uses Render's supplied port. The 120-second timeout allows CPU inference on larger accepted photos. No persistent disk is needed because uploads are not retained.
 
-Download the field images (first run may take a few minutes):
+### Compute and availability constraints
 
-```bash
-python scripts/download_hf_dataset.py
-```
+The app and model loaded locally with about 239 MiB process RSS; after an inference it was about 370 MiB on this Windows host. This is not a Linux/Render measurement, but indicates limited headroom on Render's Free plan (0.1 CPU, 512 MB RAM). PyTorch/native memory and larger uploaded photos can increase the peak, so Free deployment may be killed for memory or feel slow. For a classroom demo with real uploads, a service with 2 GB RAM and at least 1 CPU is the safer target if available to you; no service or paid plan has been created or purchased here. Free services can spin down after 15 minutes idle and take about a minute to wake. Their filesystem is ephemeral, which is acceptable for this stateless application.
 
-To use the smaller classification dataset instead:
+The uploaded-file limit is 12 MB; accepted content must be JPEG, PNG, or WebP, and images above 30 megapixels are rejected. One synchronous worker handles a request at a time. The public service has no authentication or rate limiting, so share the URL for a small demonstration rather than an unrestricted high-volume service.
 
-```bash
-python scripts/download_hf_dataset.py --dataset rlogh/lanternfly-images --split original --output data/raw_classification
-```
+## Verify after deployment
 
-Open the photographs in a bounding-box annotation tool (for example, LabelImg), choose YOLO format, and save each annotation as a `.txt` file with the same base name as its image. Put images and labels into `data/images/train`, `data/images/val`, and `data/images/test` and matching `data/labels/...` folders. Use separate original photo groups in each split; don't put augmented versions of a photo in different splits. Empty label files are needed for images confirmed to contain no lanternflies. Keep the test split untouched until final evaluation. The repository intentionally does not turn an image-level `has_lanternfly` tag into a made-up bounding box.
+1. Wait for Render's first build/deploy to finish and open the provided HTTPS `onrender.com` URL.
+2. On a phone, use **Take a photo** or **Choose a photo**; on a computer, choose a JPEG, PNG, or WebP image.
+3. Confirm the preview appears, tap **Analyze image**, then check the annotated image and count. The shown count is the number of returned target-class boxes.
+4. Try a photo with no visible adults, and an invalid file or a file over 12 MB. A zero is a successful detection response; invalid uploads and inference failures should show errors.
+5. Check that the page fits the narrow screen without horizontal scrolling. Do not interpret one image as the population of a site.
 
-## Train YOLOv8
+## Deployment verification performed before handoff
 
-Google Colab is recommended for training to avoid overheating a local laptop.
+The copied model hash/size and required files were checked. Local validation uses the existing project unit tests plus a Flask test-client smoke test with the real checkpoint: model loads, a labeled photo produces an annotated response with `count == len(detections)`, a synthetic blank image returns a successful zero, and an invalid upload returns HTTP 400. The local app imports and starts. Browser/device testing and Linux Render deployment cannot be completed from this preparation copy; verify them after you connect the repository. The full model's Linux load and the target Render plan's actual peak memory therefore remain unverified.
 
-```bash
-python src/train.py
-```
-
-Training checks that images and labels exist before starting. It uses `yolov8n.pt` as the lightweight pretrained starting point and writes the best trained checkpoint to `runs/lanternfly_yolov8/weights/best.pt`. Copy that file to `models/best.pt` for the phone app. Optional settings include `--epochs`, `--imgsz`, `--batch`, and `--model`.
-
-## Try one image on your computer
-
-```bash
-python src/predict_count.py --source path/to/photo.jpg
-```
-
-The count is the number of YOLO boxes. Annotated photos are saved under `runs/predict/`.
-
-## Use the phone camera
-
-Start the local web app on your computer after placing trained weights at `models/best.pt`:
-
-```bash
-python src/phone_app.py
-```
-
-Keep the computer and phone on the same Wi-Fi network. Find the computer's local IP address (`ipconfig` on Windows), then open `http://COMPUTER-IP:5000` on the phone. Tap the photo chooser and use the camera option. The result shows the count and annotated image. Photos are processed locally by the computer and are not saved by the app. Keep this demo on a trusted private network; it is intended for local classroom use, not public hosting.
-
-If no weights exist yet, the page explains the setup needed. The app does not claim predictions from generic pretrained weights.
-
-## Evaluation
-
-The project will evaluate:
-
-- Precision
-- Recall
-- mAP when available from the YOLO validation process
-- Detection/counting accuracy on held-out test images
-- Error cases such as small insects, occlusion, poor lighting, cluttered backgrounds, and multiple lanternflies
-
-For counting, the primary application-level measure will compare the predicted number of lanternflies with the manually verified number.
-
-## Timeline
-
-| Period | Target |
-|---|---|
-| Now–Oct. 11 | Project overview and GitHub setup |
-| Oct. 11–25 | Set up/preprocess data and start a baseline |
-| Oct. 26–Nov. 15 | Test AI approach and image-classification/detection errors |
-| Nov. 16–29 | Refine system and test counting |
-| Nov. 30–Dec. 11 | Complete report, demo, and presentation |
-
-## Expected Final Deliverable
-
-- Lightweight trained YOLO weights (`.pt`)
-- Python demonstration/inference program
-- GitHub repository
-- Dataset/setup instructions
-- Final report
-- Presentation/demo
-
-## Current model status
-
-The repository contains the training pipeline and mobile camera demo. A trained model is not checked in because the Hugging Face candidates currently provide image-level labels, not the object bounding boxes YOLO needs. After boxes are annotated and training finishes, put `best.pt` in `models/` locally; model weights and datasets are excluded from Git by `.gitignore`.
-
-## Team
-
-**Mackenzie Glaser** — Project lead; dataset preparation, preprocessing, model development, evaluation, counting system, documentation, and presentation.
-
-## References
-
-- Jena, Biswajit, et al. “Artificial intelligence-based hybrid deep learning models for image classification: The first narrative review.” *Computers in Biology and Medicine*, 137 (2021): 104803.
-- Kräter, M., et al. “AIDeveloper: Deep Learning Image Classification in Life Science and Beyond.” *Advanced Science*, 8 (2021): 2003743. https://doi.org/10.1002/advs.202003743
-- Urban, Julie M. “Perspective: shedding light on spotted lanternfly impacts in the USA.” *Pest Management Science*, 76.1 (2020): 10–17.
-- Urban, Julie M., and Heather Leach. “Biology and management of the spotted lanternfly, Lycorma delicatula (Hemiptera: Fulgoridae), in the United States.” *Annual Review of Entomology*, 68.1 (2023): 151–167.
-- Zhang, Yanlong, et al. “The biology and management of the invasive pest spotted lanternfly, Lycorma delicatula White (Hemiptera: Fulgoridae), in the United States.” *Journal of Plant Diseases and Protection*, 130.6 (2023): 1155–1174.
-- Ultralytics YOLO documentation: https://docs.ultralytics.com/
-- Hugging Face lanternfly dataset resources: https://huggingface.co/datasets
+For Render's current Flask deployment steps and resource limits, see [Render's Flask guide](https://render.com/docs/deploy-flask), [Python version configuration](https://render.com/docs/python-version), [compute plans](https://render.com/docs/compute-plans), and [free service limitations](https://render.com/docs/free). The CPU PyTorch and torchvision versions are pinned to wheels published for Python 3.13 Linux x86_64 at the [official PyTorch CPU wheel index](https://download.pytorch.org/whl/cpu/torch/) and [torchvision CPU wheel index](https://download.pytorch.org/whl/cpu/torchvision/).
